@@ -14,8 +14,8 @@ def row(ch, slot, theme, status="scheduled", style="B7", **kw):
             "theme": theme, "status": status, "style": style, **kw}
 
 
-def test_config_loads_three_channels_and_all_topic_banks():
-    assert [c.id for c in CFG.channels] == ["deep-stories", "level-up", "vs"]
+def test_config_loads_four_channels_and_all_topic_banks():
+    assert [c.id for c in CFG.channels] == ["deep-stories", "level-up", "vs", "genrec-tech"]
     for ch in CFG.channels:
         for t in ch.themes:
             assert ch.topics_path(t.id).exists(), t.id
@@ -76,7 +76,7 @@ def test_style_rotation():
 
 def test_cron_lines_ten_minutes_before_each_slot():
     lines = schedule.cron_lines(CFG)
-    assert "50 0 * * *" in lines and "20 13 * * *" in lines and len(lines) == 6
+    assert "50 0 * * *" in lines and "20 13 * * *" in lines and "50 15 * * *" in lines and len(lines) == 8
 
 
 def test_publish_yml_cron_in_sync():
@@ -198,3 +198,65 @@ def test_instagram_caption_drops_youtube_tags():
     from pipeline import instagram
     c = instagram.caption({"title": "T", "description": "D", "hashtags": ["shorts", "Myth", "#greek"]})
     assert c.endswith("#myth #greek") and "#shorts" not in c
+
+
+# --- GenrecAI channel: own-product Shorts -------------------------------------------------------
+
+def test_promo_config_and_product_topics_are_valid():
+    ch = CFG.channel("genrec-tech")
+    assert ch.promo["every"] == 4 and "genrecai.com" in ch.promo["footer"]
+    assert set(ch.promo["products"]) == {"Tabble", "LuminaIQ", "SelectStar", "HailBrowser"}
+    rows = topics.read(ch.topics_path("ai-builds"))
+    tagged = [r for r in rows if r["product"]]
+    assert tagged and all(r["product"] in ch.promo["products"] for r in tagged)
+    assert len(tagged) <= len(rows) // 3          # the bank stays mostly value-first
+    assert all(not c.promo for c in CFG.channels if c.id != "genrec-tech")
+
+
+def test_promo_every_fourth_short():
+    from pipeline.cli import promo_due
+    ch = CFG.channel("genrec-tech")
+    made = [row("genrec-tech", f"2026-11-2{i}T07:00:00Z", "ai-builds") for i in range(3)]
+    assert not promo_due(ch, made[:2])            # too early for the first product Short
+    assert promo_due(ch, made)                    # 3 plain Shorts in a row -> the 4th features a product
+    made[1]["notes"] = "promo:Tabble"
+    assert not promo_due(ch, made)
+    assert not promo_due(CFG.channel("vs"), made)
+
+
+def test_next_pending_filters_by_product(tmp_path):
+    p = tmp_path / "t.csv"
+    topics.write(p, [{"id": "a1", "topic": "plain", "status": "pending", "attempts": "0"},
+                     {"id": "a2", "topic": "prod", "status": "pending", "attempts": "0", "product": "Tabble"}])
+    assert topics.next_pending(p, want_product=True)["id"] == "a2"
+    assert topics.next_pending(p, want_product=False)["id"] == "a1"
+    assert topics.next_pending(p)["id"] == "a1"
+    assert topics.add(p, "a", [{"topic": "new one", "product": "NotOurs"}], {"Tabble"}) == 1
+    assert topics.read(p)[-1]["product"] == ""   # unknown product names are dropped
+
+
+def test_promo_rules_on_product_shorts():
+    ch = CFG.channel("genrec-tech")
+    t = {"topic": "x", "product": "Tabble"}
+    s = good_script()
+    assert any("feature Tabble" in e for e in script.promo_problems(s, ch, t))
+    s["beats"][5]["narration"] += " We built Tabble so the kitchen hears you instantly."
+    assert script.promo_problems(s, ch, t) == []
+    s["beats"][0]["narration"] = "Tabble changed this ship. " + s["beats"][0]["narration"]
+    assert any("hook" in e for e in script.promo_problems(s, ch, t))
+    s = good_script(); s["beats"][4]["narration"] += " Tabble at tabble.in"
+    assert any("URL" in e for e in script.promo_problems(s, ch, t))
+    assert script.promo_problems(good_script(), ch, {"topic": "x", "product": ""}) == []
+    wp = script.writer_prompt(ch, ch.themes[0], t)
+    assert "OWN PRODUCT" in wp and "guests scan, order and pay" in wp
+    assert "advert" in script.critic_prompt(ch, ch.themes[0], s, t)
+    assert "OWN PRODUCT" not in script.writer_prompt(ch, ch.themes[0], {"topic": "x", "product": ""})
+
+
+def test_metadata_adds_product_link_and_footer():
+    from pipeline.cli import _metadata
+    ch = CFG.channel("genrec-tech")
+    m = _metadata(good_script(), ch, "LuminaIQ")
+    assert "https://www.luminaiq.fun" in m["description"] and m["description"].rstrip().endswith("https://genrecai.com")
+    assert "luminaiq" not in _metadata(good_script(), ch, "")["description"].lower()
+    assert "genrecai" not in _metadata(good_script(), CFG.channel("vs"))["description"].lower()

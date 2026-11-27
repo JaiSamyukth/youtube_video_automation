@@ -97,19 +97,59 @@ def score(review: dict) -> float:
         return -1000
 
 
+def promo_block(ch: Channel, topic: dict) -> str:
+    """Instructions for a Short that features one of the channel's own products, or "" for a plain Short."""
+    name = topic.get("product", "")
+    prod = ch.promo.get("products", {}).get(name) if ch.promo else None
+    if not prod:
+        return ""
+    facts = "\n".join(f"  - {f}" for f in prod["facts"])
+    return (f"OWN PRODUCT IN THIS SHORT: {name}. It is made by the people who run this channel.\n"
+            f"Facts you may use (use ONLY these; invent no numbers, users, features or results):\n{facts}\n"
+            "Rules: the Short must still pass every test on its own idea; a stranger who never uses the product\n"
+            "must still find it worth watching. The product is the real example of the idea, named at most twice,\n"
+            "never in the hook, and once it is honestly framed as ours (\"we built...\"). No call to action, no\n"
+            "URL, no price, no 'link in bio', no 'best' or 'revolutionary' claims. Do not put the product in the title.\n")
+
+
+def promo_problems(script: dict, ch: Channel, topic: dict) -> list[str]:
+    name = topic.get("product", "")
+    if not name or not ch.promo:
+        return []
+    text, errs = narration(script).lower(), []
+    n = text.count(name.lower())
+    if n == 0:
+        errs.append(f"this Short is meant to feature {name}; name it once as the real example")
+    if n > 2:
+        errs.append(f"{name} is named {n} times; at most twice, or it reads like an ad")
+    first = re.split(r"(?<=[.!?])\s+", text, maxsplit=1)[0]
+    if name.lower() in first:
+        errs.append("the product is in the hook; open on the idea, not the product")
+    if re.search(r"https?://|www\.|\.com\b|\.in\b|\.fun\b", text):
+        errs.append("no URLs in the narration; links go in the description")
+    if name.lower() in str(script.get("title", "")).lower():
+        errs.append("keep the product name out of the title")
+    return errs
+
+
 def writer_prompt(ch: Channel, theme: Theme, topic: dict, revision_notes: str = "") -> str:
     guide = theme.prompt_path.read_text(encoding="utf-8") if theme.prompt_path.exists() else ""
     return _read("script-writer.md").format(
         channel_name=ch.name, theme_id=theme.id, tone=theme.tone, topic=topic["topic"],
         angle=topic.get("angle", ""), theme_guide=guide, editorial_standard=_read("editorial-standard.md"),
         content_policy=_read("content-policy.md"), words_min=ch.words_min, words_max=ch.words_max,
-        revision_notes=("\nREVISION: your previous draft failed review. Fix every point below and return the "
+        promo=promo_block(ch, topic), revision_notes=("\nREVISION: your previous draft failed review. Fix every point below and return the "
                         "full revised JSON.\n" + revision_notes) if revision_notes else "")
 
 
-def critic_prompt(ch: Channel, theme: Theme, script: dict) -> str:
+def critic_prompt(ch: Channel, theme: Theme, script: dict, topic: dict | None = None) -> str:
+    promo = promo_block(ch, topic or {})
+    if promo:
+        promo += ("Also judge the product mention: if it feels like an advert, or the Short only exists to sell,\n"
+                  "set policy_ok false and say so in policy_issues. Any product claim not in the facts above is a\n"
+                  "factual doubt.\n")
     return _read("script-critic.md").format(
-        channel_name=ch.name, theme_id=theme.id, editorial_standard=_read("editorial-standard.md"),
+        channel_name=ch.name, theme_id=theme.id, promo=promo, editorial_standard=_read("editorial-standard.md"),
         content_policy=_read("content-policy.md"), script_json=json.dumps(script, indent=1, ensure_ascii=False))
 
 
@@ -118,12 +158,12 @@ def write_script(ch: Channel, theme: Theme, topic: dict, model: str, log=print) 
     notes, best = "", None
     for draft in range(1, MAX_DRAFTS + 1):
         script = llm.ask_json(writer_prompt(ch, theme, topic, notes), model=model)
-        errs = hard_checks(script, ch)
+        errs = hard_checks(script, ch) + promo_problems(script, ch, topic)
         if errs:
             log(f"draft {draft}: hard rule failures: {errs}")
             notes = "\n".join(f"- {e}" for e in errs)
             continue
-        review = llm.ask_json(critic_prompt(ch, theme, script), model=model)
+        review = llm.ask_json(critic_prompt(ch, theme, script, topic), model=model)
         log(f"draft {draft}: scores {review.get('scores')} policy_ok={review.get('policy_ok')} verdict={review.get('verdict')}")
         if best is None or score(review) > score(best["review"]):
             best = {"script": script, "review": review, "drafts": draft}

@@ -39,6 +39,7 @@ class Channel:
     lead_minutes: int
     words_min: int
     words_max: int
+    promo: dict = field(default_factory=dict)
 
     def theme(self, theme_id: str) -> Theme:
         for t in self.themes:
@@ -74,6 +75,17 @@ class Config:
         return [c for c in self.channels if c.enabled]
 
 
+def _promo(p) -> dict:
+    """Optional own-product promotion: {"every": N, "footer": str, "products": {name: {url, facts}}}."""
+    if not p:
+        return {}
+    products = {str(x["name"]): {"url": str(x.get("url", "")), "facts": [str(f) for f in x.get("facts", [])]}
+                for x in p.get("products", [])}
+    every = int(p.get("every", 4))
+    assert every >= 2, "promo.every must be at least 2, or every Short becomes an ad"
+    return {"every": every, "footer": str(p.get("footer", "")).strip(), "products": products}
+
+
 def load(path: Path | str = CONFIG_PATH) -> Config:
     raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     d = raw.get("defaults", {})
@@ -100,6 +112,7 @@ def load(path: Path | str = CONFIG_PATH) -> Config:
             lead_minutes=int(c.get("lead_minutes", d.get("lead_minutes", 45))),
             words_min=int(c.get("words_min", d.get("words_min", 110))),
             words_max=int(c.get("words_max", d.get("words_max", 150))),
+            promo=_promo(c.get("promo")),
         ))
     llm = raw.get("llm", {})
     return Config(timezone=raw.get("timezone", "Asia/Kolkata"), skill_commit=str(raw.get("skill_commit", "")),

@@ -5,7 +5,7 @@ import csv
 import re
 from pathlib import Path
 
-FIELDS = ["id", "topic", "angle", "status", "attempts", "notes"]
+FIELDS = ["id", "topic", "angle", "status", "attempts", "notes", "product"]
 MAX_ATTEMPTS = 2
 
 
@@ -28,10 +28,12 @@ def norm(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
 
 
-def next_pending(path: Path, exclude_ids: set[str] = frozenset()) -> dict | None:
+def next_pending(path: Path, exclude_ids: set[str] = frozenset(), want_product: bool | None = None) -> dict | None:
+    """want_product: None = any topic, True = only topics tied to a product, False = only plain topics."""
     for r in read(path):
         if r["status"] == "pending" and r["id"] not in exclude_ids and int(r["attempts"] or 0) < MAX_ATTEMPTS:
-            return r
+            if want_product is None or bool(r["product"]) == want_product:
+                return r
     return None
 
 
@@ -54,7 +56,7 @@ def pending_count(path: Path) -> int:
     return sum(1 for r in read(path) if r["status"] == "pending")
 
 
-def add(path: Path, prefix: str, items: list[dict]) -> int:
+def add(path: Path, prefix: str, items: list[dict], products: set[str] = frozenset()) -> int:
     """Append new topics, skipping near-duplicates of anything already in the bank."""
     rows = read(path)
     seen = {norm(r["topic"]) for r in rows}
@@ -66,7 +68,8 @@ def add(path: Path, prefix: str, items: list[dict]) -> int:
             continue
         n += 1
         rows.append({"id": f"{prefix}{n:03d}", "topic": t, "angle": str(it.get("angle", "")).strip(),
-                     "status": "pending", "attempts": "0", "notes": "auto-generated"})
+                     "status": "pending", "attempts": "0", "notes": "auto-generated",
+                     "product": str(it.get("product", "")).strip() if str(it.get("product", "")).strip() in products else ""})
         seen.add(norm(t))
         added += 1
     write(path, rows)

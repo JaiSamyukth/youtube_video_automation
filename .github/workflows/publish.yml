@@ -7,9 +7,11 @@ on:
     - cron: '50 0 * * *'
     - cron: '50 1 * * *'
     - cron: '50 2 * * *'
+    - cron: '50 6 * * *'
     - cron: '20 12 * * *'
     - cron: '20 13 * * *'
     - cron: '50 14 * * *'
+    - cron: '50 15 * * *'
   workflow_dispatch:
 permissions:
   contents: write
@@ -20,6 +22,7 @@ env:
   DEEP_IG_ACCESS_TOKEN: ${{ secrets.DEEP_IG_ACCESS_TOKEN }}
   LEVELUP_IG_ACCESS_TOKEN: ${{ secrets.LEVELUP_IG_ACCESS_TOKEN }}
   VS_IG_ACCESS_TOKEN: ${{ secrets.VS_IG_ACCESS_TOKEN }}
+  GENREC_IG_ACCESS_TOKEN: ${{ secrets.GENREC_IG_ACCESS_TOKEN }}
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 jobs:
   instagram:

@@ -3,6 +3,7 @@ most first drafts do NOT pass. Do not rewrite it, judge it.
 
 Channel: {channel_name} / theme {theme_id}
 
+{promo}
 {editorial_standard}
 
 {content_policy}

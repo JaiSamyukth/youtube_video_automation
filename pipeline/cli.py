@@ -43,13 +43,29 @@ def cmd_plan(cfg, args):
                 f.write(f"style={p['style']}\nchannel={p['channel']}\n")
 
 
-def _metadata(script: dict) -> dict:
+def promo_due(ch, rows: list[dict]) -> bool:
+    """True when this channel's next Short should feature a product: one in every `promo.every` Shorts."""
+    if not ch.promo or not ch.promo.get("products"):
+        return False
+    made = sorted((r for r in rows if r["channel"] == ch.id and r["status"] in ("scheduled", "published", "rendered")),
+                  key=lambda r: r["slot_utc"])
+    recent = made[-(ch.promo["every"] - 1):]
+    return len(recent) == ch.promo["every"] - 1 and not any(r["notes"].startswith("promo:") for r in recent)
+
+
+def _metadata(script: dict, ch=None, product: str = "") -> dict:
     tags = []
     for t in script.get("hashtags", []):
         t = re.sub(r"[^a-z0-9]", "", str(t).lower())
         if t and t != "shorts" and t not in tags:
             tags.append(t)
     desc = re.sub(r"[ \t]*#\w+", "", str(script.get("description", ""))).strip()
+    if ch is not None and ch.promo:
+        prod = ch.promo["products"].get(product)
+        if prod and prod["url"]:
+            desc += f"\n\nIn this Short: {product}, which we built: {prod['url']}"
+        if ch.promo.get("footer"):
+            desc += "\n\n" + ch.promo["footer"]
     return {"title": str(script["title"]).strip()[:100], "description": desc, "hashtags": ["shorts"] + tags[:4]}
 
 
@@ -70,8 +86,12 @@ def cmd_produce(cfg, args):
     bank = ch.topics_path(theme.id)
     tried: set[str] = set()
     result = topic = None
+    want = promo_due(ch, rows) if ch.promo else None
+    if want:
+        log("this Short features one of the channel's own products")
     for _ in range(2):                         # a topic whose script never passes is set aside; try one more
-        topic = topics.next_pending(bank, tried)
+        topic = (topics.next_pending(bank, tried, want) if want is not None else None) \
+            or topics.next_pending(bank, tried, False if ch.promo else None) or topics.next_pending(bank, tried)
         if not topic:
             raise SystemExit(f"topic bank {bank} is empty; run refill-topics")
         tried.add(topic["id"])
@@ -97,6 +117,7 @@ def cmd_produce(cfg, args):
     row_id = f"{ch.id}-{p['slot_utc'][:16].replace(':', '').replace('-', '')}"
     base = {"id": row_id, "channel": ch.id, "theme": theme.id, "topic_id": topic["id"], "topic": topic["topic"],
             "style": style, "slot_utc": p["slot_utc"], "created_utc": ledger.iso(ledger.now_utc()), "run_url": run_url()}
+    promo_note = f"promo:{topic['product']} " if topic.get("product") and ch.promo else ""
     try:
         video = render.render(work, Path(args.skill_dir), style, voice["duration"], cfg.llm_model, log=log)
         report = qa.check(video, voice["duration"])
@@ -109,10 +130,10 @@ def cmd_produce(cfg, args):
         ledger.upsert({**base, "status": "failed", "notes": str(e)[:300]})
         raise
 
-    meta = _metadata(s)
+    meta = _metadata(s, ch, topic.get("product", ""))
     (work / "out" / "metadata.json").write_text(json.dumps(meta, indent=1, ensure_ascii=False))
     if args.no_upload:
-        ledger.upsert({**base, "status": "rendered", "title": meta["title"], "notes": "no-upload test run"})
+        ledger.upsert({**base, "status": "rendered", "title": meta["title"], "notes": promo_note + "no-upload test run"})
         log(f"rendered (not uploaded): {video}")
         return 0
     # the slot may have passed while we rendered: move to the next open slot of this channel
@@ -136,7 +157,7 @@ def cmd_produce(cfg, args):
     meta_store.parent.mkdir(parents=True, exist_ok=True)
     meta_store.write_text(json.dumps(meta, indent=1, ensure_ascii=False))
     ledger.upsert({**base, "status": "scheduled", "yt_id": yt["id"], "yt_url": yt["url"], "ig_status": ig_status,
-                   "asset": asset, "title": meta["title"]})
+                   "asset": asset, "title": meta["title"], "notes": promo_note.strip()})
     topics.mark(bank, topic["id"], "done", f"{yt['url']} for {slot}")
     log(f"scheduled {yt['url']} for {slot}")
     return 0
@@ -176,6 +197,16 @@ def cmd_publish_due(cfg, args):
     return 1 if fails else 0
 
 
+def _promo_note(ch) -> str:
+    if not ch.promo:
+        return ""
+    lines = "\n".join(f"- {n}: {'; '.join(p['facts'])}" for n, p in ch.promo["products"].items())
+    return ("This channel is run by the makers of these products:\n" + lines + "\n"
+            f"About 1 in {ch.promo['every']} topics should be one where a product is the honest, natural example of a\n"
+            "bigger idea (set \"product\" to its exact name). Every other topic leaves \"product\" empty. A product\n"
+            "topic must still be a topic people would watch if the product did not exist.")
+
+
 def cmd_refill(cfg, args):
     for ch in cfg.enabled:
         for t in ch.themes:
@@ -186,13 +217,13 @@ def cmd_refill(cfg, args):
             guide = t.prompt_path.read_text(encoding="utf-8") if t.prompt_path.exists() else ""
             prompt = (ROOT / "prompts" / "topic-ideas.md").read_text(encoding="utf-8").format(
                 channel_name=ch.name, theme_id=t.id, tone=t.tone, theme_guide=guide, existing=existing,
-                count=args.count, content_policy=(ROOT / "prompts" / "content-policy.md").read_text(encoding="utf-8"))
+                count=args.count, promo_note=_promo_note(ch), content_policy=(ROOT / "prompts" / "content-policy.md").read_text(encoding="utf-8"))
             try:
                 items = llm.ask_json(prompt, model=cfg.llm_model).get("topics", [])
             except Exception as e:
                 log(f"refill {ch.id}/{t.id} failed: {e}")
                 continue
-            n = topics.add(bank, t.id[:3], items)
+            n = topics.add(bank, t.id[:3], items, set(ch.promo.get("products", {})) if ch.promo else set())
             log(f"{ch.id}/{t.id}: added {n} topics")
     return 0
 

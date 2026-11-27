@@ -7,6 +7,7 @@ ANGLE (optional): {angle}
 
 {theme_guide}
 
+{promo}
 {editorial_standard}
 
 {content_policy}

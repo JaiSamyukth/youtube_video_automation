@@ -1,10 +1,10 @@
 name: produce
 # Makes ONE Short per run for whichever channel has the earliest unfilled slot, and schedules it
-# on YouTube with publishAt. Runs every 3 hours; when every buffer is full it exits in under a minute.
+# on YouTube with publishAt. Runs every 2 hours; when every buffer is full it exits in under a minute.
 # GitHub may delay or drop scheduled runs: that is fine, the 2-day buffer absorbs it.
 on:
   schedule:
-    - cron: '17 */3 * * *'
+    - cron: '17 */2 * * *'
   workflow_dispatch:
     inputs:
       channel:
@@ -31,9 +31,13 @@ env:
   DEEP_YT_REFRESH_TOKEN: ${{ secrets.DEEP_YT_REFRESH_TOKEN }}
   LEVELUP_YT_REFRESH_TOKEN: ${{ secrets.LEVELUP_YT_REFRESH_TOKEN }}
   VS_YT_REFRESH_TOKEN: ${{ secrets.VS_YT_REFRESH_TOKEN }}
+  GENREC_YT_CLIENT_ID: ${{ secrets.GENREC_YT_CLIENT_ID }}
+  GENREC_YT_CLIENT_SECRET: ${{ secrets.GENREC_YT_CLIENT_SECRET }}
+  GENREC_YT_REFRESH_TOKEN: ${{ secrets.GENREC_YT_REFRESH_TOKEN }}
   DEEP_IG_ACCESS_TOKEN: ${{ secrets.DEEP_IG_ACCESS_TOKEN }}
   LEVELUP_IG_ACCESS_TOKEN: ${{ secrets.LEVELUP_IG_ACCESS_TOKEN }}
   VS_IG_ACCESS_TOKEN: ${{ secrets.VS_IG_ACCESS_TOKEN }}
+  GENREC_IG_ACCESS_TOKEN: ${{ secrets.GENREC_IG_ACCESS_TOKEN }}
   LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
   LLM_MODEL: ${{ secrets.LLM_MODEL }}

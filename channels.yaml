@@ -65,3 +65,50 @@ channels:
     voice: en-US-GuyNeural
     youtube: { secret_prefix: VS }
     instagram: { secret_prefix: VS, username: "" }
+
+  - id: genrec-tech
+    name: "GenrecAI Builds (name TBD)"
+    enabled: true
+    # Builders and students: India lunch break + India night / US late morning (21:30 IST = 11:00 ET)
+    slots: ["12:30", "21:30"]
+    themes:
+      - id: ai-builds
+        weight: 1
+        styles: [B7]
+        tone: "a builder showing the trick behind the tech; clear, a little cheeky, never salesy"
+    voice: en-US-AndrewMultilingualNeural
+    # 8 uploads a day is over one Google project's quota (6), so this channel uses its own
+    # project: secrets GENREC_YT_CLIENT_ID, GENREC_YT_CLIENT_SECRET, GENREC_YT_REFRESH_TOKEN.
+    youtube: { secret_prefix: GENREC }
+    instagram: { secret_prefix: GENREC, username: "" }
+    # One Short in every `every` features one of our own products as the real example of the idea.
+    # The rest are pure value. Facts below are the ONLY product claims a script may make.
+    promo:
+      every: 4
+      footer: "Made by GenrecAI, a small software and AI studio in Tamil Nadu. We build websites, software, AI workflows, AI agents and custom CRMs: https://genrecai.com"
+      products:
+        - name: Tabble
+          url: https://www.tabble.in
+          facts:
+            - "QR ordering and a live kitchen display for restaurants"
+            - "guests scan, order and pay from the table"
+            - "every ticket lands in the kitchen the moment the guest taps"
+        - name: LuminaIQ
+          url: https://www.luminaiq.fun
+          facts:
+            - "an AI study companion: upload a textbook or lecture PDF"
+            - "gives cited answers, quizzes, four kinds of notes and flashcards"
+            - "schedules reviews timed to your memory (spaced repetition)"
+            - "used by more than 12,000 learners"
+        - name: SelectStar
+          url: https://selectstar.genrecai.com
+          facts:
+            - "an open-source (MIT) agentic database analyst"
+            - "you ask a question in plain English"
+            - "six specialised agents write the SQL, profile the data, build the charts and run the models"
+        - name: HailBrowser
+          url: https://hailbrowser.genrecai.com
+          facts:
+            - "an open-source (MIT) browser agent that runs in your own Chrome"
+            - "you ask in plain English and it uses your signed-in browser"
+            - "the same browser can be plugged into Claude Code, Cursor or Codex over MCP"
