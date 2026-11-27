@@ -11,6 +11,7 @@ import re
 import subprocess
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -81,14 +82,24 @@ def _opencode(prompt: str, model: str, timeout: int) -> str:
 
 
 def _openai_compat(prompt: str, timeout: int) -> str:
+    """LLM_MODEL may list fallbacks, comma-separated: a busy (503) or rate-limited (429) model passes to the next."""
     base = os.environ["LLM_BASE_URL"].rstrip("/")
-    body = {"model": os.environ.get("LLM_MODEL", ""), "temperature": 0.8,
-            "messages": [{"role": "user", "content": prompt + "\n\nAnswer with JSON only."}]}
-    req = urllib.request.Request(base + "/chat/completions", data=json.dumps(body).encode(),
-                                 headers={"Content-Type": "application/json",
-                                          "Authorization": "Bearer " + os.environ.get("LLM_API_KEY", "")})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode())["choices"][0]["message"]["content"]
+    models = [m.strip() for m in os.environ.get("LLM_MODEL", "").split(",") if m.strip()] or [""]
+    last = None
+    for m in models:
+        body = {"model": m, "temperature": 0.8,
+                "messages": [{"role": "user", "content": prompt + "\n\nAnswer with JSON only."}]}
+        req = urllib.request.Request(base + "/chat/completions", data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json",
+                                              "Authorization": "Bearer " + os.environ.get("LLM_API_KEY", "")})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode())["choices"][0]["message"]["content"]
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code not in (429, 500, 503, 404):
+                raise
+    raise LLMError(f"every model in LLM_MODEL failed; last error: {last}")
 
 
 def ask_json(prompt: str, model: str = "opencode/deepseek-v4.1-flash-free", timeout: int = 420, tries: int = 3):

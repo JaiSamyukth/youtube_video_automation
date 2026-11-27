@@ -84,7 +84,7 @@ Here's what changed from the original bot, and why:
    pages_read_engagement`. Add the secret `DEEP_IG_ACCESS_TOKEN` (and the same for `LEVELUP_`,
    `VS_` and `GENREC_`), and put the handle in `channels.yaml` under `instagram.username`. Without these, that
    channel posts to YouTube only.
-4. **Optional, a better model:** set `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` for any
+4. **Optional, a better model:** set `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` (a comma-separated list falls back to the next model when one is busy) for any
    OpenAI-compatible endpoint (a Gemini, Groq or OpenRouter free tier). Without them, the free
    OpenCode DeepSeek model is used, the same one the original bot uses.
 5. In Actions, run **produce** once with `no_upload` ticked to check a render, then let the schedule run.

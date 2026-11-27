@@ -15,12 +15,21 @@ def probe(path: Path) -> dict:
 
 
 def scene_changes(path: Path) -> int:
-    """Count clear cuts/set changes (ffmpeg scene score > 0.25) in the upper 78% of the frame,
-    so caption swaps alone do not count as visual variety."""
-    r = subprocess.run(["ffmpeg", "-v", "info", "-i", str(path), "-vf",
-                        "crop=iw:ih*0.78:0:0,scale=180:250,select='gt(scene,0.25)',showinfo", "-an", "-f", "null", "-"],
-                       capture_output=True, text=True)
-    return len(re.findall(r"pts_time:", r.stderr))
+    """Count set/shot changes: sample one frame a second from the upper 60% of the frame (so caption swaps
+    don't count) and count jumps in mean pixel difference over 10/255. ffmpeg's own scene score misses
+    the dark, low-contrast B7 sets, so we measure the difference directly."""
+    import tempfile
+    from PIL import Image, ImageChops, ImageStat
+    with tempfile.TemporaryDirectory() as d:
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-i", str(path), "-vf",
+                        "fps=1,crop=iw:ih*0.6:0:0,scale=54:60", f"{d}/%04d.png"], check=True)
+        prev, cuts = None, 0
+        for f in sorted(Path(d).glob("*.png")):
+            im = Image.open(f).convert("RGB")
+            if prev is not None and sum(ImageStat.Stat(ImageChops.difference(im, prev)).mean) / 3 > 10:
+                cuts += 1
+            prev = im
+    return cuts
 
 
 def black_fraction(path: Path, duration: float) -> float:
