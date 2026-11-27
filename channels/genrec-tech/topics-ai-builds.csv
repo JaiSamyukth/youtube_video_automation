@@ -1,0 +1,17 @@
+id,topic,angle,status,attempts,notes,product
+aib001,How an AI agent actually clicks buttons on a website,"It reads the page like a list of labelled boxes, not like a picture",pending,0,seed,
+aib002,Why cramming fails and spaced repetition works,"Your brain deletes what you never revisit, on a schedule you can predict",pending,0,seed,
+aib003,What happens in the one second after you tap Order,Your order crosses four systems before the chef sees it,pending,0,seed,
+aib004,Why most business automations quietly break,The happy path works; the 3% of weird inputs kill it,pending,0,seed,
+aib005,How a chatbot can show you where its answer came from,Retrieval: it looks things up before it talks,pending,0,seed,
+aib006,"What an API really is, explained with a waiter",Every app you use is ordering from a kitchen you never see,pending,0,seed,
+aib007,How plain English becomes a database query,"The hard part is not the SQL, it is knowing which table you meant",pending,0,seed,
+aib008,Why open-source software is free and still makes money,Giving the code away is the marketing,pending,0,seed,
+aib009,The restaurant ticket printer that never got replaced,Paper tickets survived 40 years because they never crash,pending,0,seed,
+aib010,How MCP lets one AI tool use another,"A plug standard for AI, like USB for apps",pending,0,seed,
+aib011,Why a spreadsheet becomes a company's biggest risk,"One wrong cell, copied 400 times",pending,0,seed,
+aib012,How flashcards are scheduled by forgetting curves,The best time to review is just before you forget,pending,0,seed,LuminaIQ
+aib013,Why a browser agent should use your own signed-in browser,Logging in is the wall most agents never get past,pending,0,seed,HailBrowser
+aib014,Six agents answering one business question,"One writes SQL, one checks the data, one draws the chart",pending,0,seed,SelectStar
+aib015,Why QR menus cut the wait at a busy restaurant,The slowest part of dinner is waiting for someone to take the order,pending,0,seed,Tabble
+aib016,How an AI turns a 300-page textbook into a quiz,It has to find the question hiding in every paragraph,pending,0,seed,LuminaIQ

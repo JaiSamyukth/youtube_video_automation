@@ -1,0 +1,40 @@
+name: publish
+# Posts Instagram Reels at each slot (YouTube publishes itself via publishAt).
+# The cron lines are generated from channels.yaml by `python -m pipeline sync-cron`: 10 minutes
+# before every slot, and the job waits until the slot minute. Do not edit them by hand.
+on:
+  schedule:
+    - cron: '50 0 * * *'
+    - cron: '50 1 * * *'
+    - cron: '50 2 * * *'
+    - cron: '50 6 * * *'
+    - cron: '20 12 * * *'
+    - cron: '20 13 * * *'
+    - cron: '50 14 * * *'
+    - cron: '50 15 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: publish
+  cancel-in-progress: false
+env:
+  DEEP_IG_ACCESS_TOKEN: ${{ secrets.DEEP_IG_ACCESS_TOKEN }}
+  LEVELUP_IG_ACCESS_TOKEN: ${{ secrets.LEVELUP_IG_ACCESS_TOKEN }}
+  VS_IG_ACCESS_TOKEN: ${{ secrets.VS_IG_ACCESS_TOKEN }}
+  GENREC_IG_ACCESS_TOKEN: ${{ secrets.GENREC_IG_ACCESS_TOKEN }}
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+jobs:
+  instagram:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.13' }
+      - run: pip install -q -r requirements.txt
+      - name: Post Reels that are due
+        run: python -m pipeline publish-due --early-minutes 20
+      - name: Save ledger
+        if: always()
+        run: bash scripts/commit_state.sh "publish: instagram"

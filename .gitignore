@@ -1,0 +1,6 @@
+work/
+work-ig/
+svd/
+__pycache__/
+*.pyc
+.pytest_cache/

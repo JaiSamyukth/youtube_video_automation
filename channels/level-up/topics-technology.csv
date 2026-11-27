@@ -1,0 +1,16 @@
+id,topic,angle,status,attempts,notes
+tec001,How GPS knows where you are using clocks in space,Your phone is doing relativity maths to find the coffee shop,pending,0,seed
+tec002,The internet runs through cables on the ocean floor,Almost all intercontinental data does not go through satellites,pending,0,seed
+tec003,How a chip with billions of transistors is printed with light,"Patterns smaller than a virus, made with ultraviolet light",pending,0,seed
+tec004,Why your phone charger gets warm,"Where the lost energy goes, and why it matters",pending,0,seed
+tec005,How noise-cancelling headphones make silence,They fight sound with sound,pending,0,seed
+tec006,How an AI language model picks its next word,"It is guessing, one word at a time, astonishingly well",pending,0,seed
+tec007,The bug that was a real moth,The 1947 logbook entry with an actual insect taped inside,pending,0,seed
+tec008,How QR codes still work when part is torn off,Built-in error correction can survive serious damage,pending,0,seed
+tec009,Why airplane mode exists,"What the worry really was, and what is true today",pending,0,seed
+tec010,How Wi-Fi sends data through walls,Invisible radio waves carrying your video call,pending,0,seed
+tec011,The Y2K problem: the disaster that didn't happen because people fixed it,Two digits that cost billions to fix,pending,0,seed
+tec012,How touchscreens feel your finger,Your body is part of the circuit,pending,0,seed
+tec013,Why the keyboard is QWERTY,The layout from the typewriter era that stuck around,pending,0,seed
+tec014,How passwords are stored so even the company can't read them,Hashing: a one-way blender for your password,pending,0,seed
+tec015,Why there is a delay on live TV,The few seconds that protect broadcasts,pending,0,seed
