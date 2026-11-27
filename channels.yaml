@@ -1,0 +1,67 @@
+# Every channel this pipeline runs. Edit this file to rename channels, change posting
+# times, switch a channel on/off or change which themes and styles it uses.
+# After changing any `slots`, run:  python -m pipeline sync-cron   (rewrites publish.yml's schedule)
+
+timezone: Asia/Kolkata          # all slot times below are in this zone
+skill_commit: 10287822          # kaomei/stickman-video-director, pinned
+llm:
+  provider: opencode            # opencode (free DeepSeek) | openai_compat (set LLM_BASE_URL/LLM_API_KEY/LLM_MODEL)
+  model: opencode/deepseek-v4.1-flash-free
+defaults:
+  buffer_days: 2                # keep this many days of Shorts rendered and scheduled ahead
+  lead_minutes: 45              # never schedule a Short sooner than this from now
+  words_min: 110                # 110-150 words is about 40-55 seconds at the channel voice speed
+  words_max: 150
+  voice: en-US-AndrewMultilingualNeural
+  voice_rate: "+10%"
+
+channels:
+  - id: deep-stories
+    name: "Deep Stories (name TBD)"
+    enabled: true
+    # India evening + US late evening (19:00 IST = 08:30 ET; 07:30 IST = 21:00 ET the night before)
+    slots: ["07:30", "19:00"]
+    themes:
+      - id: philosophy
+        weight: 1
+        styles: [A5, B7]
+        tone: "calm, curious, a little haunting; ideas shown as small human stories"
+      - id: mythology
+        weight: 1
+        styles: [A5, B7]
+        tone: "storyteller: one myth, told so a stranger needs to know how it ends"
+    voice: en-US-AndrewMultilingualNeural
+    youtube: { secret_prefix: DEEP }
+    instagram: { secret_prefix: DEEP, username: "" }   # fill in the IG handle once the account exists
+
+  - id: level-up
+    name: "Level Up (name TBD)"
+    enabled: true
+    # Early-morning motivation in India + US morning commute (18:00 IST = 07:30 ET)
+    slots: ["06:30", "18:00"]
+    themes:
+      - id: fitness-money
+        weight: 1
+        styles: [B7]
+        tone: "direct, energetic, practical; no guru talk, no promises of riches"
+      - id: technology
+        weight: 1
+        styles: [B7]
+        tone: "how things really work, with one 'wait, what?' moment"
+    voice: en-US-BrianMultilingualNeural
+    youtube: { secret_prefix: LEVELUP }
+    instagram: { secret_prefix: LEVELUP, username: "" }
+
+  - id: vs
+    name: "VS (name TBD)"
+    enabled: true
+    # Younger, evening-heavy audience: India night + US evening (08:30 IST = 22:00 ET)
+    slots: ["08:30", "20:30"]
+    themes:
+      - id: versus
+        weight: 1
+        styles: [B7]
+        tone: "hype commentator energy, but every round decided by real facts"
+    voice: en-US-GuyNeural
+    youtube: { secret_prefix: VS }
+    instagram: { secret_prefix: VS, username: "" }

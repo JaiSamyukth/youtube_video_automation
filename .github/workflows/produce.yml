@@ -1,0 +1,100 @@
+name: produce
+# Makes ONE Short per run for whichever channel has the earliest unfilled slot, and schedules it
+# on YouTube with publishAt. Runs every 3 hours; when every buffer is full it exits in under a minute.
+# GitHub may delay or drop scheduled runs: that is fine, the 2-day buffer absorbs it.
+on:
+  schedule:
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: 'Only this channel id (blank = whichever needs a video most)'
+        required: false
+        default: ''
+      style:
+        description: 'Force a style (B7 or A5); blank = channel rotation'
+        required: false
+        default: ''
+      no_upload:
+        description: 'Test run: render only, do not upload anywhere'
+        type: boolean
+        default: false
+permissions:
+  contents: write
+  issues: write
+concurrency:
+  group: produce
+  cancel-in-progress: false
+env:
+  YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+  YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+  DEEP_YT_REFRESH_TOKEN: ${{ secrets.DEEP_YT_REFRESH_TOKEN }}
+  LEVELUP_YT_REFRESH_TOKEN: ${{ secrets.LEVELUP_YT_REFRESH_TOKEN }}
+  VS_YT_REFRESH_TOKEN: ${{ secrets.VS_YT_REFRESH_TOKEN }}
+  DEEP_IG_ACCESS_TOKEN: ${{ secrets.DEEP_IG_ACCESS_TOKEN }}
+  LEVELUP_IG_ACCESS_TOKEN: ${{ secrets.LEVELUP_IG_ACCESS_TOKEN }}
+  VS_IG_ACCESS_TOKEN: ${{ secrets.VS_IG_ACCESS_TOKEN }}
+  LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+  LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+  LLM_MODEL: ${{ secrets.LLM_MODEL }}
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  SKILL_DIR: ${{ github.workspace }}/svd/skills/directing-stickman-videos
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.13' }
+      - run: pip install -q -r requirements.txt
+      - name: Plan
+        id: plan
+        run: python -m pipeline plan --github-output ${{ inputs.channel && format('--channel {0}', inputs.channel) || '' }}
+      - uses: actions/setup-node@v4
+        if: steps.plan.outputs.skip != 'true'
+        with: { node-version: 22 }
+      - name: Install tools
+        if: steps.plan.outputs.skip != 'true'
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q ffmpeg fonts-noto-core
+          sudo fallocate -l 6G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile || true
+          npm install -g opencode-ai@1.19.6
+      - name: Fetch the stickman-video-director skill (pinned)
+        if: steps.plan.outputs.skip != 'true'
+        run: |
+          C=$(python -c "import yaml;print(yaml.safe_load(open('channels.yaml'))['skill_commit'])")
+          git clone -q --filter=blob:limit=5m --no-checkout https://github.com/kaomei/stickman-video-director svd
+          cd svd && git sparse-checkout set skills/directing-stickman-videos && git checkout -q "$C"
+          cd skills/directing-stickman-videos && npm ci --silent
+      - name: Top up topic banks that are running low
+        if: steps.plan.outputs.skip != 'true'
+        run: python -m pipeline refill-topics || true
+      - name: Make and schedule one Short
+        if: steps.plan.outputs.skip != 'true'
+        run: |
+          python -m pipeline produce --work work \
+            ${{ inputs.channel && format('--channel {0}', inputs.channel) || '' }} \
+            ${{ inputs.style && format('--style {0}', inputs.style) || '' }} \
+            ${{ inputs.no_upload && '--no-upload' || '' }}
+      - name: Save queue and ledger
+        if: always() && steps.plan.outputs.skip != 'true'
+        run: bash scripts/commit_state.sh "produce: ${{ steps.plan.outputs.channel }}"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.plan.outputs.skip != 'true'
+        with:
+          name: short-${{ github.run_id }}
+          path: |
+            work/out
+            work/script.json
+            work/review.json
+            work/timing.json
+            work/PROMPT.md
+          retention-days: 14
+      - name: Report a failure (one open issue, comments after that)
+        if: failure()
+        run: |
+          T="Short production is failing"
+          N=$(gh issue list --state open --search "$T in:title" --json number --jq '.[0].number')
+          B="Run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} failed for channel ${{ steps.plan.outputs.channel }}. The slot stays open and the next run retries it."
+          if [ -n "$N" ]; then gh issue comment "$N" --body "$B"; else gh issue create --title "$T" --body "$B"; fi
